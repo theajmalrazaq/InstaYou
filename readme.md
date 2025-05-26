@@ -2,6 +2,10 @@
 
 <img src="InstaYou/Public/logo.png" height="80px" alt="InstaYou Logo"/>
 
+  <a href="https://github.com/ajmalrazaqbhatti/superflex/releases">
+    <img src="https://img.shields.io/github/downloads/ajmalrazaqbhatti/InstaYou/total?style=for-the-badge&color=f92b04" alt="GitHub all downloads">
+  </a>
+
 ## No Cap, This Is The Way To Track Instagram Stats FR FR 🔥
 
 **InstaYou** is a Chrome extension that lets you track who's following (and unfollowing) literally ANYONE on Instagram. Perfect for keeping tabs on your faves, your ex, your bestie who's always losing followers, or that person who suddenly got famous. We see you, and we're here to help you see EVERYONE ELSE.
