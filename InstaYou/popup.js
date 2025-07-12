@@ -28,6 +28,11 @@ document.getElementById("compareBtn").addEventListener("click", () => {
   showSavedUsersList();
 });
 
+// Update All button functionality
+document.getElementById("updateAllBtn").addEventListener("click", () => {
+  updateAllTrackedUsers();
+});
+
 // Back button functionality
 document.getElementById("backButton").addEventListener("click", () => {
   // Hide comparison UI elements
@@ -42,6 +47,9 @@ document.getElementById("backButton").addEventListener("click", () => {
   // Show main UI elements
   document.getElementById("mainButtons").style.display = "flex";
   document.getElementById("mainText").textContent = "Upgrade Your Stalking Skills 🚀";
+  
+  // Refresh stats count
+  updateStatsCount();
 });
 
 // Show list of saved users from Chrome storage
@@ -479,6 +487,7 @@ chrome.runtime.onMessage.addListener((message) => {
       dataArray.push(message.data);
       chrome.storage.local.set({[storageKey]: JSON.stringify(dataArray)}, () => {
         showPageAlert(`Stored stats for ${message.data.username}:\nDate: ${message.data.timestamp}\nFollowers: ${message.data.followerCount}\nFollowing: ${message.data.followingCount}`);
+        updateStatsCount(); // Update the counter
       });
     });
   }
@@ -663,7 +672,34 @@ chrome.storage.local.get(null, (items) => {
       count++;
     }
   }
+  
+  // Update the stats display
+  updateStatsDisplay(count);
 });
+
+// Function to update stats display
+function updateStatsCount() {
+  chrome.storage.local.get(null, (items) => {
+    let count = 0;
+    for (const key in items) {
+      if (key.startsWith("instagram_stats_")) {
+        count++;
+      }
+    }
+    updateStatsDisplay(count);
+  });
+}
+
+function updateStatsDisplay(count) {
+  const trackedCountElement = document.getElementById("trackedCount");
+  if (trackedCountElement) {
+    if (count === 0) {
+      trackedCountElement.textContent = "No profiles tracked yet";
+    } else {
+      trackedCountElement.textContent = `Tracking ${count} profile${count > 1 ? 's' : ''}`;
+    }
+  }
+}
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById("clearListBtn")?.addEventListener("click", clearStoredData);
   document.getElementById("exportBtn")?.addEventListener("click", exportData);
@@ -837,6 +873,75 @@ function showHistory(username) {
     document.getElementById("backButton").style.display = "block";
     document.getElementById("clearListBtn").style.display = "block";
     document.getElementById("exportBtn").style.display = "block";
+  });
+}
+
+// Update all tracked users functionality
+function updateAllTrackedUsers() {
+  chrome.storage.local.get(null, (items) => {
+    const usernames = [];
+    for (const key in items) {
+      if (key && key.startsWith("instagram_stats_")) {
+        const username = key.replace("instagram_stats_", "");
+        usernames.push(username);
+      }
+    }
+    
+    if (usernames.length === 0) {
+      showPageAlert("No tracked users found");
+      return;
+    }
+    
+    // Show confirmation dialog
+    if (!confirm(`Update stats for all ${usernames.length} tracked users? This will open each profile in sequence.`)) {
+      return;
+    }
+    
+    // Start the update process
+    document.getElementById("mainText").textContent = "Updating all users... Please wait";
+    document.getElementById("mainButtons").style.display = "none";
+    
+    let currentIndex = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    
+    function updateNextUser() {
+      if (currentIndex >= usernames.length) {
+        // All done
+        showPageAlert(`Update complete! Success: ${successCount}, Errors: ${errorCount}`);
+        document.getElementById("mainText").textContent = "Upgrade Your Stalking Skills 🚀";
+        document.getElementById("mainButtons").style.display = "flex";
+        return;
+      }
+      
+      const username = usernames[currentIndex];
+      document.getElementById("mainText").textContent = `Updating ${currentIndex + 1}/${usernames.length}: @${username}`;
+      
+      // Navigate to the user's profile and update stats
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const targetUrl = `https://www.instagram.com/${username}/`;
+        
+        chrome.tabs.update(tabs[0].id, { url: targetUrl }, () => {
+          // Wait for page to load, then update stats
+          setTimeout(() => {
+            chrome.scripting.executeScript({
+              target: { tabId: tabs[0].id },
+              function: storeFollowerCounts,
+            }).then(() => {
+              successCount++;
+              currentIndex++;
+              setTimeout(updateNextUser, 2000); // Wait 2 seconds between updates
+            }).catch(() => {
+              errorCount++;
+              currentIndex++;
+              setTimeout(updateNextUser, 2000);
+            });
+          }, 3000); // Wait 3 seconds for page to load
+        });
+      });
+    }
+    
+    updateNextUser();
   });
 }
 
