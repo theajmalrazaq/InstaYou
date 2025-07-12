@@ -17,13 +17,35 @@
     </div>
     <div class="upp">
       <button id="backButton" class="back-button">Back</button>
-       <button id="clearListBtn">Yeet the List 🗑️</button>
-    
+      <select id="sortSelect" class="sort-select" style="display: none;">
+        <option value="name">Sort by Name</option>
+        <option value="recent">Sort by Recent</option>
+        <option value="followers">Sort by Followers</option>
+      </select>
+      <button id="exportBtn">Export Data 📤</button>
+      <button id="clearListBtn">Yeet the List 🗑️</button>
     </div>
    
 
     <div id="userList"></div>
     <div id="compareResults"></div>
+    
+    <!-- Notes Modal -->
+    <div id="notesModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="notesModalTitle">Add Notes</h3>
+          <button id="closeModal" class="close-button">×</button>
+        </div>
+        <div class="modal-body">
+          <textarea id="notesTextarea" placeholder="Add your notes about this profile..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button id="saveNotes" class="save-button">Save</button>
+          <button id="cancelNotes" class="cancel-button">Cancel</button>
+        </div>
+      </div>
+    </div>
     
     <p id="author">
       Cooked up by  
