@@ -18,6 +18,11 @@
 - **Timeline Tea** - Track changes with timestamps so you know when it happened
 - **Track Everyone** - Keep tabs on unlimited profiles (your entire FYP if you want)
 - **Aesthetic AF** - Color-coded stats that make sense (green = W, red = L)
+- **📤 Export Your Data** - Backup all your tracking data to JSON files for safekeeping
+- **📊 Historical Timeline** - View complete history of changes for each tracked profile
+- **📝 Profile Notes** - Add custom notes to remember why you're tracking someone
+- **🔄 Quick Update All** - Bulk update stats for all tracked profiles at once
+- **🎯 Smart Sorting** - Sort your tracked users by name, recent activity, or follower count
 
 ## 📱 Installation (It's Giving Easy)
 
@@ -57,7 +62,14 @@
 - Hit **"Spot the Difference 👀"**
 - Select their username from your list
 - **BOOM!** See exactly how many followers they gained/lost
+- Click **"View History"** to see their complete timeline
 - This is immediate group chat material
+
+### Step 4: Advanced Features
+- **Add Notes**: Click the 📝 button next to any tracked user to add custom notes
+- **Export Data**: Use the 📤 "Export Data" button to backup your tracking data
+- **Quick Update**: Use 🔄 "Update All Tracked" to refresh stats for all profiles
+- **Sort & Organize**: Use the sort dropdown to organize users by name, activity, or follower count
 
 ## 🔍 What's In The Box
 
@@ -75,6 +87,9 @@ Here's what's in the extension folder:
 - **No Login Needed** - We don't need your password (that's sus)
 - **Zero Waste** - All data stays on YOUR computer
 - **Clean Up Option** - "Yeet the List 🗑️" button to delete profiles you're over
+- **Data Export** - Never lose your tracking data with built-in backup functionality
+- **Smart Organization** - Sort, search, and annotate your tracked profiles
+- **Bulk Operations** - Update multiple profiles at once to save time
 
 ## 🤔 FAQ (Because We Know You're Wondering)
 

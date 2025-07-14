@@ -28,6 +28,11 @@ document.getElementById("compareBtn").addEventListener("click", () => {
   showSavedUsersList();
 });
 
+// Update All button functionality
+document.getElementById("updateAllBtn").addEventListener("click", () => {
+  updateAllTrackedUsers();
+});
+
 // Back button functionality
 document.getElementById("backButton").addEventListener("click", () => {
   // Hide comparison UI elements
@@ -36,10 +41,15 @@ document.getElementById("backButton").addEventListener("click", () => {
   document.getElementById("compareResults").style.display = "none";
   document.getElementById("backButton").style.display = "none";
   document.getElementById("clearListBtn").style.display = "none";
+  document.getElementById("exportBtn").style.display = "none";
+  document.getElementById("sortSelect").style.display = "none";
   
   // Show main UI elements
   document.getElementById("mainButtons").style.display = "flex";
   document.getElementById("mainText").textContent = "Upgrade Your Stalking Skills 🚀";
+  
+  // Refresh stats count
+  updateStatsCount();
 });
 
 // Show list of saved users from Chrome storage
@@ -53,40 +63,80 @@ function showSavedUsersList() {
   document.getElementById("backButton").style.display = "block";
   document.getElementById("author").style.display="none";
   document.getElementById("clearListBtn").style.display = "block";
+  document.getElementById("exportBtn").style.display = "block";
+  document.getElementById("sortSelect").style.display = "block";
   document.getElementById("mainText").textContent = "Select a user to compare stats";
   
   // THIS IS THE CRITICAL FIX: Use chrome.storage.local instead of localStorage
   chrome.storage.local.get(null, (items) => {
     
-    // Get all keys that start with "instagram_stats_"
-    const savedUsers = new Set();
+    // Get all keys that start with "instagram_stats_" and collect user data
+    const userData = [];
     for (const key in items) {
       
       if (key && key.startsWith("instagram_stats_")) {
         const username = key.replace("instagram_stats_", "");
-        savedUsers.add(username);
+        try {
+          const stats = JSON.parse(items[key]);
+          const latestStats = Array.isArray(stats) ? stats[stats.length - 1] : stats;
+          userData.push({
+            username,
+            latestStats,
+            lastUpdate: latestStats.timestamp,
+            followerCount: latestStats.followerCount || 0
+          });
+        } catch (e) {
+          // Skip invalid data
+          continue;
+        }
       }
     }
     
+    // Sort the user data
+    const sortBy = document.getElementById("sortSelect").value;
+    userData.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.username.localeCompare(b.username);
+        case 'recent':
+          return new Date(b.lastUpdate) - new Date(a.lastUpdate);
+        case 'followers':
+          return b.followerCount - a.followerCount;
+        default:
+          return a.username.localeCompare(b.username);
+      }
+    });
     
     // If no saved users, show message
-    if (savedUsers.size === 0) {
+    if (userData.length === 0) {
       userList.innerHTML = "<div class='user-item'>No saved users found</div>";
       return;
     }
     
     // Add each user to the list
-    savedUsers.forEach(username => {
+    userData.forEach(({username}) => {
       const deleteButton = document.createElement("button");
       deleteButton.textContent = "Delete";
       deleteButton.addEventListener("click", () => {
           const storageKey = `instagram_stats_${username}`;
           chrome.storage.local.remove(storageKey, () => {
-            showSavedUsersList();
+            // Also remove notes when deleting user
+            chrome.storage.local.remove(`notes_${username}`, () => {
+              showSavedUsersList();
+            });
           });
       
       });
       deleteButton.className = "delete-button";
+      
+      const notesButton = document.createElement("button");
+      notesButton.textContent = "📝";
+      notesButton.className = "notes-button";
+      notesButton.title = "Add/Edit Notes";
+      notesButton.addEventListener("click", () => {
+        showNotesDialog(username);
+      });
+      
       const useritemname = document.createElement("div");
       useritemname.innerText = username;
       const userItem = document.createElement("div");
@@ -95,7 +145,13 @@ function showSavedUsersList() {
       useritemname.addEventListener("click", () => {
         compareUserStats(username);
       });
-      userItem.appendChild(deleteButton);
+      
+      const buttonContainer = document.createElement("div");
+      buttonContainer.className = "user-buttons";
+      buttonContainer.appendChild(notesButton);
+      buttonContainer.appendChild(deleteButton);
+      userItem.appendChild(buttonContainer);
+      
       userList.appendChild(userItem);
     });
   });
@@ -431,6 +487,7 @@ chrome.runtime.onMessage.addListener((message) => {
       dataArray.push(message.data);
       chrome.storage.local.set({[storageKey]: JSON.stringify(dataArray)}, () => {
         showPageAlert(`Stored stats for ${message.data.username}:\nDate: ${message.data.timestamp}\nFollowers: ${message.data.followerCount}\nFollowing: ${message.data.followingCount}`);
+        updateStatsCount(); // Update the counter
       });
     });
   }
@@ -501,7 +558,7 @@ chrome.runtime.onMessage.addListener((message) => {
                 </div>
               </div>
               <div class="stats-footer">
-                <span class="stats-history-link">View History</span>
+                <span class="stats-history-link" onclick="showHistory('${message.username}')">View History</span>
                 <button class="stats-update-btn">Update Stats</button>
               </div>
             </div>
@@ -568,7 +625,10 @@ chrome.runtime.onMessage.addListener((message) => {
               </div>
             </div>
           </div>
-        
+          <div class="stats-footer">
+            <span class="stats-history-link" onclick="showHistory('${message.username}')">View History</span>
+            <button class="stats-update-btn">Update Stats</button>
+          </div>
         </div>
       `;
 
@@ -612,9 +672,39 @@ chrome.storage.local.get(null, (items) => {
       count++;
     }
   }
+  
+  // Update the stats display
+  updateStatsDisplay(count);
 });
+
+// Function to update stats display
+function updateStatsCount() {
+  chrome.storage.local.get(null, (items) => {
+    let count = 0;
+    for (const key in items) {
+      if (key.startsWith("instagram_stats_")) {
+        count++;
+      }
+    }
+    updateStatsDisplay(count);
+  });
+}
+
+function updateStatsDisplay(count) {
+  const trackedCountElement = document.getElementById("trackedCount");
+  if (trackedCountElement) {
+    if (count === 0) {
+      trackedCountElement.textContent = "No profiles tracked yet";
+    } else {
+      trackedCountElement.textContent = `Tracking ${count} profile${count > 1 ? 's' : ''}`;
+    }
+  }
+}
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById("clearListBtn")?.addEventListener("click", clearStoredData);
+  document.getElementById("exportBtn")?.addEventListener("click", exportData);
+  
+  // Modal event listeners (moved to above function)
 });
 function clearStoredData() {
   
@@ -663,3 +753,267 @@ function clearStoredData() {
     });
   }
 }
+
+// Export data functionality
+function exportData() {
+  chrome.storage.local.get(null, (items) => {
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      version: "1.0",
+      data: {}
+    };
+    
+    // Filter only Instagram stats and notes
+    for (const key in items) {
+      if (key.startsWith("instagram_stats_")) {
+        const username = key.replace("instagram_stats_", "");
+        try {
+          const userData = JSON.parse(items[key]);
+          exportData.data[username] = {
+            stats: userData,
+            notes: items[`notes_${username}`] || null
+          };
+        } catch (e) {
+          // Skip invalid data
+          continue;
+        }
+      }
+    }
+    
+    if (Object.keys(exportData.data).length === 0) {
+      showPageAlert("No data to export");
+      return;
+    }
+    
+    // Create download
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `instayou-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    showPageAlert(`Exported data for ${Object.keys(exportData.data).length} profiles`);
+  });
+}
+
+// Show historical timeline for a user
+function showHistory(username) {
+  const storageKey = `instagram_stats_${username}`;
+  
+  chrome.storage.local.get([storageKey], (result) => {
+    let dataArray = [];
+    
+    if (result[storageKey]) {
+      try {
+        dataArray = JSON.parse(result[storageKey]);
+        if (!Array.isArray(dataArray)) {
+          dataArray = [dataArray];
+        }
+      } catch (e) {
+        dataArray = [];
+      }
+    }
+    
+    if (dataArray.length === 0) {
+      showPageAlert("No history found for this user");
+      return;
+    }
+    
+    // Sort by timestamp (newest first)
+    dataArray.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    let historyHTML = `
+      <div class="history-container">
+        <div class="history-header">
+          <h3>@${username} History</h3>
+          <p>${dataArray.length} record${dataArray.length > 1 ? 's' : ''}</p>
+        </div>
+        <div class="history-timeline">
+    `;
+    
+    for (let i = 0; i < dataArray.length; i++) {
+      const entry = dataArray[i];
+      const prevEntry = i < dataArray.length - 1 ? dataArray[i + 1] : null;
+      
+      const followerChange = prevEntry ? entry.followerCount - prevEntry.followerCount : 0;
+      const followingChange = prevEntry ? entry.followingCount - prevEntry.followingCount : 0;
+      
+      historyHTML += `
+        <div class="history-entry">
+          <div class="history-date">${entry.timestamp}</div>
+          <div class="history-stats">
+            <div class="history-stat">
+              <span>Followers: ${formatNumber(entry.followerCount)}</span>
+              ${prevEntry ? `<span class="${getChangeClass(followerChange)}">${formatChangeWithEmoji(followerChange)}</span>` : '<span class="stats-neutral">Initial</span>'}
+            </div>
+            <div class="history-stat">
+              <span>Following: ${formatNumber(entry.followingCount)}</span>
+              ${prevEntry ? `<span class="${getChangeClass(followingChange)}">${formatChangeWithEmoji(followingChange)}</span>` : '<span class="stats-neutral">Initial</span>'}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    historyHTML += `
+        </div>
+      </div>
+    `;
+    
+    const resultsDiv = document.getElementById("compareResults");
+    resultsDiv.innerHTML = historyHTML;
+    resultsDiv.style.display = "flex";
+    document.getElementById("userList").style.display = "none";
+    document.getElementById("backButton").style.display = "block";
+    document.getElementById("clearListBtn").style.display = "block";
+    document.getElementById("exportBtn").style.display = "block";
+  });
+}
+
+// Update all tracked users functionality
+function updateAllTrackedUsers() {
+  chrome.storage.local.get(null, (items) => {
+    const usernames = [];
+    for (const key in items) {
+      if (key && key.startsWith("instagram_stats_")) {
+        const username = key.replace("instagram_stats_", "");
+        usernames.push(username);
+      }
+    }
+    
+    if (usernames.length === 0) {
+      showPageAlert("No tracked users found");
+      return;
+    }
+    
+    // Show confirmation dialog
+    if (!confirm(`Update stats for all ${usernames.length} tracked users? This will open each profile in sequence.`)) {
+      return;
+    }
+    
+    // Start the update process
+    document.getElementById("mainText").textContent = "Updating all users... Please wait";
+    document.getElementById("mainButtons").style.display = "none";
+    
+    let currentIndex = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    
+    function updateNextUser() {
+      if (currentIndex >= usernames.length) {
+        // All done
+        showPageAlert(`Update complete! Success: ${successCount}, Errors: ${errorCount}`);
+        document.getElementById("mainText").textContent = "Upgrade Your Stalking Skills 🚀";
+        document.getElementById("mainButtons").style.display = "flex";
+        return;
+      }
+      
+      const username = usernames[currentIndex];
+      document.getElementById("mainText").textContent = `Updating ${currentIndex + 1}/${usernames.length}: @${username}`;
+      
+      // Navigate to the user's profile and update stats
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const targetUrl = `https://www.instagram.com/${username}/`;
+        
+        chrome.tabs.update(tabs[0].id, { url: targetUrl }, () => {
+          // Wait for page to load, then update stats
+          setTimeout(() => {
+            chrome.scripting.executeScript({
+              target: { tabId: tabs[0].id },
+              function: storeFollowerCounts,
+            }).then(() => {
+              successCount++;
+              currentIndex++;
+              setTimeout(updateNextUser, 2000); // Wait 2 seconds between updates
+            }).catch(() => {
+              errorCount++;
+              currentIndex++;
+              setTimeout(updateNextUser, 2000);
+            });
+          }, 3000); // Wait 3 seconds for page to load
+        });
+      });
+    }
+    
+    updateNextUser();
+  });
+}
+
+// Show notes dialog for a user
+function showNotesDialog(username) {
+  const modal = document.getElementById("notesModal");
+  const textarea = document.getElementById("notesTextarea");
+  const title = document.getElementById("notesModalTitle");
+  
+  title.textContent = `Notes for @${username}`;
+  
+  // Load existing notes
+  chrome.storage.local.get([`notes_${username}`], (result) => {
+    textarea.value = result[`notes_${username}`] || '';
+    modal.style.display = "flex";
+    textarea.focus();
+  });
+  
+  // Store current username for saving
+  modal.dataset.username = username;
+}
+
+// Initialize modal event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById("clearListBtn")?.addEventListener("click", clearStoredData);
+  document.getElementById("exportBtn")?.addEventListener("click", exportData);
+  
+  // Modal event listeners
+  const modal = document.getElementById("notesModal");
+  const closeModal = document.getElementById("closeModal");
+  const saveNotes = document.getElementById("saveNotes");
+  const cancelNotes = document.getElementById("cancelNotes");
+  const sortSelect = document.getElementById("sortSelect");
+  
+  // Sort event listener
+  sortSelect?.addEventListener("change", () => {
+    if (document.getElementById("userList").style.display === "flex") {
+      showSavedUsersList();
+    }
+  });
+  
+  const hideModal = () => {
+    modal.style.display = "none";
+    document.getElementById("notesTextarea").value = "";
+  };
+  
+  closeModal?.addEventListener("click", hideModal);
+  cancelNotes?.addEventListener("click", hideModal);
+  
+  saveNotes?.addEventListener("click", () => {
+    const username = modal.dataset.username;
+    const notes = document.getElementById("notesTextarea").value.trim();
+    const key = `notes_${username}`;
+    
+    if (notes) {
+      chrome.storage.local.set({[key]: notes}, () => {
+        showPageAlert(`Notes saved for @${username}`);
+        hideModal();
+      });
+    } else {
+      // Remove notes if empty
+      chrome.storage.local.remove(key, () => {
+        showPageAlert(`Notes removed for @${username}`);
+        hideModal();
+      });
+    }
+  });
+  
+  // Close modal when clicking outside
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      hideModal();
+    }
+  });
+});
